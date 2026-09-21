@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>功能开关追踪器</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>功能开关追踪器</h1>
+    <div class="project-bar">
+      <label>项目
+        <select id="projectSelect"></select>
+      </label>
+      <button id="newProjectBtn">新建项目</button>
+      <button id="editProjectBtn">敏感字段设置</button>
+      <span class="spacer"></span>
+      <button id="exportBtn">导出</button>
+      <button id="importBtn">导入</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="evaluate">求值</button>
+    <button class="tab" data-tab="flags">开关与版本</button>
+    <button class="tab" data-tab="contexts">保存的上下文</button>
+    <button class="tab" data-tab="compare">版本对比</button>
+    <button class="tab" data-tab="history">历史记录</button>
+  </nav>
+
+  <main>
+    <section id="tab-evaluate" class="tab-panel active">
+      <div class="two-col">
+        <div class="card">
+          <h2>输入上下文</h2>
+          <label>开关
+            <select id="evalFlag"></select>
+          </label>
+          <label>版本（留空 = 最新已发布版本）
+            <select id="evalVersion"><option value="">最新</option></select>
+          </label>
+          <label>使用已保存上下文
+            <select id="evalSavedContext"><option value="">— 手动输入 —</option></select>
+          </label>
+          <textarea id="evalContext" rows="14" spellcheck="false">{
+  "user": { "id": "alice", "tier": "employee" }
+}</textarea>
+          <div class="row">
+            <button id="evaluateBtn" class="primary">求值并追踪</button>
+            <label class="inline"><input type="checkbox" id="saveRecord" checked> 保存为历史记录</label>
+          </div>
+        </div>
+        <div class="card">
+          <h2>求值结论与轨迹</h2>
+          <div id="evalSummary" class="summary muted">尚未求值</div>
+          <div id="evalTrace"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-flags" class="tab-panel">
+      <div class="card">
+        <h2>开关列表</h2>
+        <table id="flagTable">
+          <thead><tr><th>Key</th><th>名称</th><th>版本数</th><th>最新版本</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button id="newFlagBtn">新建开关草稿</button>
+      </div>
+      <div class="card hidden" id="flagEditor">
+        <h2>编辑：<span id="editorFlagKey"></span></h2>
+        <div class="grid2">
+          <label>显示名称 <input id="flagName"></label>
+          <label>稳定身份字段 <input id="stableIdField" value="user.id"></label>
+        </div>
+        <label>描述 <input id="flagDescription"></label>
+
+        <h3>前置开关（按顺序门控）</h3>
+        <div id="prereqList"></div>
+        <button id="addPrereqBtn">添加前置依赖</button>
+
+        <h3>规则（从上到下顺序求值，拖动 ↑↓ 可调整）</h3>
+        <div id="ruleList"></div>
+        <button id="addRuleBtn">添加规则</button>
+
+        <h3>默认值</h3>
+        <input id="defaultValue" value="off" class="small">
+
+        <div class="row">
+          <button id="saveDraftBtn">保存草稿</button>
+          <button id="publishBtn" class="primary">保存并发布新版本</button>
+          <label class="inline">发布说明 <input id="publishNote" placeholder="例如：灰度扩大到 50%"></label>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-contexts" class="tab-panel">
+      <div class="card">
+        <h2>保存的上下文</h2>
+        <label>名称 <input id="contextName" placeholder="例如：VIP 用户 Bob"></label>
+        <textarea id="contextJson" rows="10" spellcheck="false">{
+  "user": { "id": "bob", "tier": "vip" }
+}</textarea>
+        <button id="saveContextBtn" class="primary">保存上下文</button>
+        <table id="contextTable">
+          <thead><tr><th>名称</th><th>内容预览</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-compare" class="tab-panel">
+      <div class="card">
+        <h2>比较两个版本对一组保存上下文的影响</h2>
+        <div class="row">
+          <label>开关 <select id="compareFlag"></select></label>
+          <label>旧版本 <select id="compareFrom"></select></label>
+          <label>新版本 <select id="compareTo"></select></label>
+        </div>
+        <div id="compareContextPicker"></div>
+        <button id="runCompareBtn" class="primary">运行对比</button>
+        <div id="compareResults"></div>
+      </div>
+    </section>
+
+    <section id="tab-history" class="tab-panel">
+      <div class="card">
+        <h2>历史求值记录（绑定版本，重放不跟随规则变化）</h2>
+        <table id="historyTable">
+          <thead><tr><th>时间</th><th>开关</th><th>版本</th><th>上下文</th><th>结果</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="replayPanel"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
