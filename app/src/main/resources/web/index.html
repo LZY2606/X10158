@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>功能开关追踪器</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🎚️</span>
+    <div>
+      <h1>功能开关追踪器</h1>
+      <div class="sub">带版本的规则求值 · 逐步轨迹 · 稳定分桶 · 前置依赖 · 快照隔离</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <a class="btn" href="/api/export" target="_blank">导出</a>
+    <label class="btn">导入<input id="importFile" type="file" accept="application/json" hidden></label>
+    <select id="importMode" title="导入模式">
+      <option value="merge">合并</option>
+      <option value="replace">替换（恢复）</option>
+    </select>
+    <button class="btn primary" id="refreshBtn">刷新</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="sidebar">
+    <section>
+      <div class="section-head">
+        <h2>开关</h2>
+        <button class="mini" id="newFlagBtn" title="新建开关">＋</button>
+      </div>
+      <div id="flagList" class="list"></div>
+    </section>
+    <section>
+      <div class="section-head">
+        <h2>保存的上下文</h2>
+        <button class="mini" id="newCtxBtn" title="保存当前上下文">＋</button>
+      </div>
+      <div id="contextList" class="list"></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>求值记录</h2></div>
+      <div id="recordList" class="list records"></div>
+    </section>
+  </aside>
+
+  <section class="content">
+    <div id="welcome" class="welcome">
+      <h2>这个开关为什么是 on / off / 某个变体？</h2>
+      <p>从左侧选择一个开关，或新建一个。你可以：</p>
+      <ul>
+        <li>编辑条件规则的<b>顺序</b>，拖动设置<b>百分比分流</b>；</li>
+        <li>在右上输入 JSON 上下文并求值，展开<b>逐步轨迹</b>：读了哪些字段、哪条条件成败、分桶输入与前置依赖；</li>
+        <li>选择两个版本，对一组保存上下文做<b>影响对比</b>。</li>
+      </ul>
+      <p class="hint">缺失字段与显式 <code>null</code> 区分处理；字符串与数字不会隐式互转。</p>
+    </div>
+
+    <div id="flagPanel" class="flag-panel" hidden>
+      <div class="flag-head">
+        <div>
+          <div class="flag-title">
+            <h2 id="flagName"></h2>
+            <span class="badge" id="flagKeyBadge"></span>
+            <span class="badge ver" id="flagVerBadge"></span>
+          </div>
+          <div class="muted" id="flagMeta"></div>
+        </div>
+        <div class="flag-actions">
+          <select id="versionSelect" title="查看版本"></select>
+          <button class="btn" id="editBtn">编辑并发布新版本</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card" id="configCard">
+          <h3>当前版本配置</h3>
+          <div id="configView"></div>
+        </div>
+
+        <div class="card" id="editorCard" hidden>
+          <h3>新版本草稿（发布后不可变）</h3>
+          <div class="form-grid">
+            <label>类型
+              <select id="edType">
+                <option value="boolean">boolean（on/off）</option>
+                <option value="string">string（变体）</option>
+              </select>
+            </label>
+            <label>默认值
+              <input id="edDefault" placeholder="boolean: true/false；string: 文本">
+            </label>
+            <label>salt（分桶稳定键）
+              <input id="edSalt">
+            </label>
+            <label>稳定身份字段
+              <input id="edIdentity" placeholder="如 user_id">
+            </label>
+            <label>前置开关
+              <select id="edPrereqKey"><option value="">（无）</option></select>
+            </label>
+            <label>前置期望值
+              <input id="edPrereqExpected" placeholder="如 true / gold">
+            </label>
+            <label class="span2">敏感字段（逗号分隔，轨迹中仅显示摘要）
+              <input id="edSensitive" placeholder="email,ssn">
+            </label>
+          </div>
+          <h4>规则（按顺序求值，拖动排序）</h4>
+          <div id="edRules"></div>
+          <div class="row-actions">
+            <button class="btn" id="addValueRule">＋ 固定值规则</button>
+            <button class="btn" id="addRolloutRule">＋ 百分比规则</button>
+            <button class="btn primary" id="publishBtn">发布新版本</button>
+            <button class="btn" id="cancelEditBtn">取消</button>
+          </div>
+          <div id="editorError" class="error" hidden></div>
+        </div>
+      </div>
+
+      <div class="grid eval-grid">
+        <div class="card">
+          <h3>求值上下文（JSON）</h3>
+          <textarea id="contextInput" rows="14" spellcheck="false"></textarea>
+          <div class="row-actions wrap">
+            <button class="btn primary" id="evalBtn">求值（当前版本）</button>
+            <button class="btn" id="evalBatchBtn">批量求值（所有开关，同一快照）</button>
+            <button class="btn" id="saveEvalRecord">求值并存为记录</button>
+            <label class="chk"><input type="checkbox" id="useSavedCtxChk"> 使用保存上下文：
+              <select id="savedCtxSelect"></select>
+            </label>
+          </div>
+          <div id="evalError" class="error" hidden></div>
+        </div>
+
+        <div class="card">
+          <h3>结论与逐步轨迹</h3>
+          <div id="resultBar" class="result-bar muted">尚未求值</div>
+          <div id="traceTree" class="trace"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>版本影响对比（对一组保存上下文）</h3>
+        <div class="row-actions wrap">
+          <label>版本 A <select id="cmpA"></select></label>
+          <label>版本 B <select id="cmpB"></select></label>
+          <label class="chk"><input type="checkbox" id="cmpAllCtx" checked> 全部保存上下文</label>
+          <button class="btn" id="compareBtn">比较</button>
+        </div>
+        <div id="diffView"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="recordModal" class="modal" hidden>
+  <div class="modal-body wide">
+    <div class="modal-head">
+      <h3 id="recordTitle">记录</h3>
+      <button class="mini" id="closeRecord">✕</button>
+    </div>
+    <div id="recordContent"></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
